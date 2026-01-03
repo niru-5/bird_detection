@@ -1,0 +1,46 @@
+# has to be greater than 1 second.
+capture_interval_sec: 5 # 5 secs
+
+
+sensor_settings:
+  sensor_mode: 7
+  crop_settings:
+    x: 600
+    y: 1000
+    width: 1300
+    height: 1500
+  exposure_time_us: 100000
+  gain: 1.0
+  white_balance: 4000
+  fps: 30
+  resolution: 1024x1024
+  format: "RGB24"
+  sensor_format: "RGB24"
+
+operating_hours:
+  enabled: true
+  start_hour: 9      # 9 AM
+  end_hour: 17       # 5 PM (24-hour format)
+  timezone: "local"  # Use system timezone
+
+filter:
+  enabled: true
+  frame_diff_threshold: 70
+
+storage:
+  max_disk_mb: 1024*10 # 3 GB
+  retention_days: 14 # 2 weeks
+  path: "/var/lib/bird-capture/images"
+  # whichever is smaller, the rolling window or the retention days, delete the oldest images. 
+
+server:
+  url: "http://inference-server:8000/detect"
+  timeout_sec: 3
+  retry_attempts: 3
+  retry_backoff_sec: 5
+
+metrics:
+  enabled: true
+  port: 8080
+  host: "0.0.0.0"
+
