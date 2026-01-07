@@ -19,7 +19,10 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
 # Set the working directory for all the subsequent Dockerfile instructions.
 WORKDIR /resources
 
+# ADD . /resources
 
+# make bash the default shell
+SHELL ["/bin/bash", "-c"]
 
 RUN git clone https://github.com/IDEA-Research/GroundingDINO.git && \
      cd GroundingDINO && \
@@ -44,8 +47,16 @@ RUN python -m venv pip_env && source pip_env/bin/activate && \
 
 # RUN cd GroundingDINO/ && python -m pip install .
 
-CMD sleep infinity
+# Install server dependencies
+RUN /bin/bash -c "source pip_env/bin/activate && pip install fastapi uvicorn[standard] python-multipart PyYAML Pillow prometheus-client"
 
-# COPY docker_test.py docker_test.py
 
-# CMD [ "python", "docker_test.py" ]
+COPY config.yaml /resources/config.yaml
+COPY server.py /resources/server.py
+
+
+# Expose port for FastAPI server (includes /metrics endpoint)
+EXPOSE 6061
+
+# Run the FastAPI server
+CMD ["/bin/bash", "-c", "source pip_env/bin/activate && python server.py"]

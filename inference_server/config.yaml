@@ -1,0 +1,53 @@
+# Grounding DINO Inference Server Configuration
+
+# Server settings
+server:
+  host: "0.0.0.0"
+  port: 6061
+  workers: 1
+  log_level: "info"
+
+# Model settings
+model:
+  config_file: "/resources/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py"
+  checkpoint_path: "/resources/GroundingDINO/weights/groundingdino_swint_ogc.pth"
+  device: "cuda"  # "cuda" or "cpu"
+
+# Inference settings
+inference:
+  # Text prompt for bird detection
+  text_prompt: "bird"
+
+  # Detection thresholds
+  box_threshold: 0.35      # Confidence threshold for bounding boxes
+  text_threshold: 0.25     # Threshold for text matching
+
+  # Image preprocessing
+  max_image_size: 1333     # Maximum size for image resizing
+  min_image_size: 800      # Minimum size for image resizing
+
+  # Post-processing
+  with_logits: true        # Include confidence scores in response
+  
+  save_images_without_detections: 0.01 # probability of saving images which do not have detections
+  save_images_without_detections: 1
+
+# Storage settings (optional)
+storage:
+  save_detections: false
+  output_dir: "/resources/outputs"
+  save_visualizations: false
+
+# Performance settings
+performance:
+  # Batch processing (future enhancement)
+  batch_size: 1
+
+  # Model optimization
+  use_half_precision: false  # FP16 inference (requires GPU)
+  compile_model: false       # PyTorch 2.0 compile (experimental)
+
+# Monitoring
+monitoring:
+  enable_metrics: true
+  # Metrics are exposed on the main server port at /metrics endpoint

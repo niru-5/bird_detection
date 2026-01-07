@@ -1,0 +1,28 @@
+# Grounding DINO Inference Server - Python Dependencies
+
+# FastAPI and server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+
+# Core dependencies (matching Dockerfile)
+numpy<2
+torch==2.1.2
+torchvision==0.16.2
+torchaudio==2.1.2
+
+# Image processing
+Pillow>=10.0.0
+opencv-python<4.12
+
+# NLP
+transformers<4.40
+
+# Configuration
+PyYAML>=6.0
+
+# Model building (for Grounding DINO)
+ninja
+
+# Monitoring (optional)
+prometheus-client>=0.18.0

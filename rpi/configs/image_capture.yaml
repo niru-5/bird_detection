@@ -34,13 +34,13 @@ storage:
   # whichever is smaller, the rolling window or the retention days, delete the oldest images. 
 
 server:
-  url: "http://inference-server:8000/detect"
+  url: "http://192.168.178.22:6061/detect"
   timeout_sec: 3
   retry_attempts: 1
   retry_backoff_sec: 5
 
 metrics:
   enabled: true
-  port: 8080
+  port: 6053
   host: "0.0.0.0"
 

@@ -1,0 +1,146 @@
+version: '3.8'
+
+services:
+  inference-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: grounding-dino-inference:latest
+    container_name: bird-detection-inference
+    networks:
+      - internal
+      - public
+    ports:
+      - "6061:6061"  # FastAPI server (includes /metrics endpoint)
+    # volumes:
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6061/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    networks:
+      - internal
+    ports:
+      - "6076:9000"
+      - "6077:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  lakefs:
+    image: treeverse/lakefs:latest
+    container_name: lakefs
+    networks:
+      - internal
+      - public
+    env_file:
+      - .env
+    ports:
+      - "6078:8000"
+    environment:
+      LAKEFS_AUTH_ENCRYPT_SECRET_KEY: ${LAKEFS_SECRET_KEY}
+      LAKEFS_DATABASE_TYPE: local
+      LAKEFS_DATABASE_LOCAL_PATH: /data/metadata
+      LAKEFS_BLOCKSTORE_TYPE: s3
+      LAKEFS_BLOCKSTORE_S3_CREDENTIALS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      LAKEFS_BLOCKSTORE_S3_CREDENTIALS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      LAKEFS_BLOCKSTORE_S3_ENDPOINT: http://minio:9000
+      LAKEFS_BLOCKSTORE_S3_FORCE_PATH_STYLE: "true"
+      # Auto-create admin user
+      LAKEFS_AUTH_API_BOOTSTRAP_CREDENTIALS_ACCESS_KEY_ID: ${LAKEFS_ACCESS_KEY}
+      LAKEFS_AUTH_API_BOOTSTRAP_CREDENTIALS_SECRET_ACCESS_KEY: ${LAKEFS_SECRET_KEY}
+    depends_on:
+      - minio
+    volumes:
+      - lakefs-data:/data
+
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    # ports: # on the same internal network as prometheus so not required
+    #   - "6095:6095"
+    networks:
+      - internal
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "6091:3000"
+    networks:
+      - public
+      - internal
+    depends_on:
+      - prometheus
+
+  # Prometheus - scrapes internal services only
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "6081:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - internal
+      - public
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+
+volumes:
+  minio-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /hdd/side_projects/data/bird_detection_data/minio
+  lakefs-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /hdd/side_projects/data/bird_detection_data/lakefs
+  prometheus-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /hdd/side_projects/data/bird_detection_data/prometheus
+
+networks:
+  public:
+    driver: bridge
+  internal:
+    driver: bridge
+    internal: true 

@@ -96,6 +96,7 @@ Create a production-style inference server that performs detection, persists res
 - Grafana + Prometheus
 - Docker, Docker Compose
 - pytest, HTTPX
+- lakefs
 
 ---
 

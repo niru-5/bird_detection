@@ -1,6 +1,7 @@
 py_env/
 py37_env/
 data/
+*.env
 *.pyc
 *.pyo
 
