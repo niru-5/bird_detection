@@ -7,6 +7,7 @@ Receives images from edge devices and returns detection results.
 """
 
 import io
+import os
 import logging
 import time
 from datetime import datetime
@@ -35,6 +36,9 @@ from groundingdino.models import build_model
 from groundingdino.util import box_ops
 from groundingdino.util.slconfig import SLConfig
 from groundingdino.util.utils import clean_state_dict, get_phrases_from_posmap
+
+# Import image storage
+from image_storage import ImageStorage
 
 # ============================================================================
 # Configuration
@@ -93,12 +97,57 @@ class Config:
         return self.config['inference']['with_logits']
 
     @property
-    def save_detections(self) -> bool:
-        return self.config.get('storage', {}).get('save_detections', False)
+    def save_images_without_detections(self) -> float:
+        return self.config['inference'].get('save_images_without_detections', 0.01)
+
+    # Storage configuration properties
+    @property
+    def storage_enabled(self) -> bool:
+        return self.config.get('storage', {}).get('enabled', False)
 
     @property
-    def output_dir(self) -> str:
-        return self.config.get('storage', {}).get('output_dir', '/resources/outputs')
+    def minio_endpoint(self) -> str:
+        return self.config.get('storage', {}).get('minio_endpoint', 'localhost:9000')
+
+    @property
+    def minio_access_key(self) -> str:
+        return os.getenv('MINIO_ROOT_USER') or self.config.get('storage', {}).get('minio_access_key', 'minioadmin')
+
+    @property
+    def minio_secret_key(self) -> str:
+        return os.getenv('MINIO_ROOT_PASSWORD') or self.config.get('storage', {}).get('minio_secret_key', 'minioadmin')
+
+    @property
+    def minio_bucket_name(self) -> str:
+        return self.config.get('storage', {}).get('minio_bucket_name', 'bird-images')
+
+    @property
+    def lakefs_host(self) -> str:
+        return self.config.get('storage', {}).get('lakefs_host', 'localhost:8000')
+
+    @property
+    def lakefs_access_key(self) -> str:
+        return os.getenv('LAKEFS_ACCESS_KEY') or self.config.get('storage', {}).get('lakefs_access_key', '')
+
+    @property
+    def lakefs_secret_key(self) -> str:
+        return os.getenv('LAKEFS_SECRET_KEY') or self.config.get('storage', {}).get('lakefs_secret_key', '')
+
+    @property
+    def lakefs_repo_name(self) -> str:
+        return self.config.get('storage', {}).get('lakefs_repo_name', 'bird-detection')
+
+    @property
+    def commit_interval(self) -> int:
+        return self.config.get('storage', {}).get('commit_interval', 100)
+
+    @property
+    def daily_commit_hour(self) -> int:
+        return self.config.get('storage', {}).get('daily_commit_hour', 18)
+
+    @property
+    def daily_commit_minute(self) -> int:
+        return self.config.get('storage', {}).get('daily_commit_minute', 0)
 
 
 # ============================================================================
@@ -383,12 +432,13 @@ app = FastAPI(
 # Global instances
 config: Optional[Config] = None
 model_manager: Optional[ModelManager] = None
+image_storage: Optional[ImageStorage] = None
 
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize model on startup."""
-    global config, model_manager
+    global config, model_manager, image_storage
 
     # Setup logging
     logging.basicConfig(
@@ -409,7 +459,52 @@ async def startup_event():
     model_manager = ModelManager(config)
     model_manager.load_model()
 
+    # Initialize image storage (if enabled)
+    if config.storage_enabled:
+        logging.info("Initializing image storage...")
+        try:
+            image_storage = ImageStorage(
+                minio_endpoint=config.minio_endpoint,
+                minio_access_key=config.minio_access_key,
+                minio_secret_key=config.minio_secret_key,
+                minio_bucket_name=config.minio_bucket_name,
+                lakefs_host=config.lakefs_host,
+                lakefs_access_key=config.lakefs_access_key,
+                lakefs_secret_key=config.lakefs_secret_key,
+                lakefs_repo_name=config.lakefs_repo_name,
+                save_probability_no_detections=config.save_images_without_detections,
+                commit_interval=config.commit_interval,
+                daily_commit_hour=config.daily_commit_hour,
+                daily_commit_minute=config.daily_commit_minute
+            )
+            # Setup infrastructure (create bucket and repo if needed)
+            image_storage.setup_infrastructure()
+            logging.info("Image storage initialized successfully")
+        except Exception as e:
+            logging.error(f"Failed to initialize image storage: {e}", exc_info=True)
+            logging.warning("Continuing without image storage")
+            image_storage = None
+    else:
+        logging.info("Image storage disabled in configuration")
+
     logging.info("Server startup complete!")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown."""
+    global image_storage
+
+    logging.info("Server shutting down...")
+
+    # Shutdown image storage if active
+    if image_storage is not None:
+        try:
+            image_storage.shutdown()
+        except Exception as e:
+            logging.error(f"Error during image storage shutdown: {e}", exc_info=True)
+
+    logging.info("Server shutdown complete")
 
 
 @app.get("/")
@@ -496,9 +591,32 @@ async def detect(
         }
 
         logging.info(f"Detection complete: {results['num_detections']} birds found")
-        
-        # TODO: If more than one detection, save the image. 
-        # if no detections, save them depending on the probability present in the config file.
+
+        # Save image to storage if enabled
+        if image_storage is not None:
+            try:
+                saved_path = image_storage.save_detection_image(
+                    image_pil=image_pil,
+                    detection_results=results,
+                    device_id=device_id,
+                    timestamp=timestamp
+                )
+                if saved_path:
+                    results["storage"] = {
+                        "saved": True,
+                        "path": saved_path
+                    }
+                else:
+                    results["storage"] = {
+                        "saved": False,
+                        "reason": "Not saved based on probability sampling"
+                    }
+            except Exception as e:
+                logging.error(f"Error saving image to storage: {e}", exc_info=True)
+                results["storage"] = {
+                    "saved": False,
+                    "error": str(e)
+                }
 
         # Track successful request
         http_requests_total.labels(method='POST', endpoint='/detect', status='200').inc()

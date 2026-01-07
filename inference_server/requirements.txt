@@ -24,5 +24,12 @@ PyYAML>=6.0
 # Model building (for Grounding DINO)
 ninja
 
+# Storage and versioning
+boto3>=1.28.0
+lakefs-sdk>=0.4.0
+
+# Scheduling
+APScheduler>=3.10.0
+
 # Monitoring (optional)
 prometheus-client>=0.18.0
