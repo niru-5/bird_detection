@@ -20,6 +20,7 @@ transformers<4.40
 
 # Configuration
 PyYAML>=6.0
+python-dotenv>=1.0.0
 
 # Model building (for Grounding DINO)
 ninja

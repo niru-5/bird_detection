@@ -49,8 +49,10 @@ RUN python -m venv pip_env && source pip_env/bin/activate && \
 
 # Install server dependencies
 RUN /bin/bash -c "source pip_env/bin/activate && pip install fastapi uvicorn[standard] python-multipart PyYAML Pillow prometheus-client"
+COPY requirements.txt /resources/requirements.txt
+RUN /bin/bash -c "source pip_env/bin/activate && cd /resources && pip install -r requirements.txt"
 
-
+COPY image_storage.py /resources/image_storage.py
 COPY config.yaml /resources/config.yaml
 COPY server.py /resources/server.py
 

@@ -17,6 +17,10 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import torch
 import yaml
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Request
 from fastapi.responses import JSONResponse, Response
 from PIL import Image
@@ -111,11 +115,19 @@ class Config:
 
     @property
     def minio_access_key(self) -> str:
-        return os.getenv('MINIO_ROOT_USER') or self.config.get('storage', {}).get('minio_access_key', 'minioadmin')
+        """MinIO access key from environment variable MINIO_ROOT_USER."""
+        key = os.getenv('MINIO_ROOT_USER')
+        if not key:
+            raise ValueError("MINIO_ROOT_USER environment variable is required")
+        return key
 
     @property
     def minio_secret_key(self) -> str:
-        return os.getenv('MINIO_ROOT_PASSWORD') or self.config.get('storage', {}).get('minio_secret_key', 'minioadmin')
+        """MinIO secret key from environment variable MINIO_ROOT_PASSWORD."""
+        key = os.getenv('MINIO_ROOT_PASSWORD')
+        if not key:
+            raise ValueError("MINIO_ROOT_PASSWORD environment variable is required")
+        return key
 
     @property
     def minio_bucket_name(self) -> str:
@@ -127,11 +139,19 @@ class Config:
 
     @property
     def lakefs_access_key(self) -> str:
-        return os.getenv('LAKEFS_ACCESS_KEY') or self.config.get('storage', {}).get('lakefs_access_key', '')
+        """LakeFS access key from environment variable LAKEFS_ACCESS_KEY."""
+        key = os.getenv('LAKEFS_ACCESS_KEY')
+        if not key:
+            raise ValueError("LAKEFS_ACCESS_KEY environment variable is required")
+        return key
 
     @property
     def lakefs_secret_key(self) -> str:
-        return os.getenv('LAKEFS_SECRET_KEY') or self.config.get('storage', {}).get('lakefs_secret_key', '')
+        """LakeFS secret key from environment variable LAKEFS_SECRET_KEY."""
+        key = os.getenv('LAKEFS_SECRET_KEY')
+        if not key:
+            raise ValueError("LAKEFS_SECRET_KEY environment variable is required")
+        return key
 
     @property
     def lakefs_repo_name(self) -> str:

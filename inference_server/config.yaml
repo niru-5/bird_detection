@@ -30,23 +30,23 @@ inference:
   with_logits: true        # Include confidence scores in response
 
   # Image saving behavior
-  save_images_without_detections: 0.01 # probability of saving images which do not have detections
+  save_images_without_detections: 0.8 # probability of saving images which do not have detections
 
 # Storage settings (for LakeFS + MinIO)
 storage:
   enabled: true            # Enable/disable image storage
 
   # MinIO settings (S3-compatible object storage)
+  # Note: Credentials must be set via environment variables (see .env file)
   minio_endpoint: "minio:9000"           # Use "localhost:6076" when accessing from host
-  minio_access_key: "minioadmin"         # Can be overridden with env var MINIO_ROOT_USER
-  minio_secret_key: "minioadmin"         # Can be overridden with env var MINIO_ROOT_PASSWORD
-  minio_bucket_name: "bird-images"
+  minio_bucket_name: "bird-detection-images"       # Bucket name for image storage
+  # Required env vars: MINIO_ROOT_USER, MINIO_ROOT_PASSWORD
 
   # LakeFS settings (data versioning)
+  # Note: Credentials must be set via environment variables (see .env file)
   lakefs_host: "lakefs:8000"             # Use "localhost:6078" when accessing from host
-  lakefs_access_key: ""                  # Set via env var LAKEFS_ACCESS_KEY
-  lakefs_secret_key: ""                  # Set via env var LAKEFS_SECRET_KEY
-  lakefs_repo_name: "bird-detection"
+  lakefs_repo_name: "bird-detection"     # Repository name for versioned data
+  # Required env vars: LAKEFS_ACCESS_KEY, LAKEFS_SECRET_KEY
 
   # Commit settings (auto-versioning)
   commit_interval: 100     # Number of images to save before auto-commit (0 = disabled)

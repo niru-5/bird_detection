@@ -19,7 +19,7 @@ sensor_settings:
 
 operating_hours:
   enabled: true
-  start_hour: 9      # 9 AM
+  start_hour: 8      # 9 AM
   end_hour: 17       # 5 PM (24-hour format)
   timezone: "local"  # Use system timezone
 
